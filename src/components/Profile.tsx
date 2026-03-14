@@ -1,0 +1,213 @@
+import { ArrowLeft, FolderKanban, Award, TrendingUp, Calendar } from 'lucide-react';
+import { User, Project, ViewType } from '../App';
+import { Sidebar } from './Sidebar';
+
+interface ProfileProps {
+  user: User;
+  projects: Project[];
+  onNavigate: (view: ViewType, projectId?: string) => void;
+  onLogout: () => void;
+}
+
+export function Profile({ user, projects, onNavigate, onLogout }: ProfileProps) {
+  // Filter projects where user is involved
+  const userProjects = projects.filter(
+    project => 
+      project.ownerId === user.id || 
+      project.teamMembers.some(member => member.email === user.email)
+  );
+
+  // Calculate contribution metrics
+  const totalProjects = userProjects.length;
+  const domainCounts: { [key: string]: number } = {};
+  
+  userProjects.forEach(project => {
+    project.domains.forEach(domain => {
+      domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+    });
+  });
+
+  const topDomain = Object.entries(domainCounts)
+    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
+
+  const stats = [
+    { label: 'Projects Completed', value: totalProjects, icon: FolderKanban, bgColor: 'bg-indigo-100', iconColor: 'text-indigo-600' },
+    { label: 'Top Domain', value: topDomain, icon: TrendingUp, bgColor: 'bg-green-100', iconColor: 'text-green-600' },
+    { label: 'Total Collaborations', value: userProjects.filter(p => p.teamMembers.length > 1).length, icon: Award, bgColor: 'bg-purple-100', iconColor: 'text-purple-600' },
+  ];
+
+  return (
+    <div className="flex h-screen">
+      <Sidebar
+        user={user}
+        currentView="profile"
+        notificationCount={0}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
+
+      <div className="flex-1 overflow-y-auto bg-slate-50">
+        <div className="max-w-6xl mx-auto p-8">
+          {/* Header */}
+          <div className="mb-8">
+            <button
+              onClick={() => onNavigate('dashboard')}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-4 font-medium"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Dashboard
+            </button>
+            <div className="bg-white rounded-xl border border-slate-200 p-8">
+              <div className="flex items-start gap-6">
+                {/* Profile Picture */}
+                <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-3xl font-bold">
+                    {user.name.charAt(0)}
+                  </span>
+                </div>
+                
+                {/* User Info */}
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-slate-800 mb-2">{user.name}</h1>
+                  <p className="text-slate-600 mb-1">{user.email}</p>
+                  <div className="inline-flex items-center px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-medium text-sm capitalize">
+                    {user.role}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          {user.role === 'student' && (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-4">Contribution Metrics</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {stats.map((stat, index) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div key={index} className="bg-white rounded-xl border border-slate-200 p-6">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
+                          <Icon className={`w-6 h-6 ${stat.iconColor}`} />
+                        </div>
+                        <div>
+                          <p className="text-slate-600 text-sm mb-1">{stat.label}</p>
+                          <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Projects Grid */}
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">
+              {user.role === 'student' ? 'My Projects' : 'Projects with Access'}
+            </h2>
+            
+            {userProjects.length === 0 ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FolderKanban className="w-10 h-10 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800 mb-2">No Projects Yet</h3>
+                <p className="text-slate-600 mb-6">
+                  {user.role === 'student'
+                    ? 'Get started by creating your first project'
+                    : 'Request access to projects to see them here'}
+                </p>
+                {user.role === 'student' && (
+                  <button
+                    onClick={() => onNavigate('create-project')}
+                    className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition"
+                  >
+                    Create Your First Project
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userProjects.map(project => {
+                  const userMember = project.teamMembers.find(m => m.email === user.email);
+                  
+                  return (
+                    <div
+                      key={project.id}
+                      onClick={() => onNavigate('project-detail', project.id)}
+                      className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg hover:border-indigo-300 transition cursor-pointer"
+                    >
+                      <div className="mb-4">
+                        <h3 className="font-semibold text-slate-800 text-lg mb-2">{project.title}</h3>
+                        <p className="text-slate-600 text-sm line-clamp-2">{project.abstract}</p>
+                      </div>
+
+                      {userMember && (
+                        <div className="mb-4 p-3 bg-indigo-50 rounded-lg">
+                          <p className="text-xs font-medium text-indigo-700 mb-1">Your Contribution</p>
+                          <p className="text-sm text-indigo-900">{userMember.contribution}</p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {project.domains.slice(0, 3).map(domain => (
+                          <span
+                            key={domain}
+                            className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-md font-medium"
+                          >
+                            {domain}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-slate-500 pt-4 border-t border-slate-100">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>{project.year}</span>
+                        </div>
+                        <span>{project.teamMembers.length} members</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Domain Breakdown */}
+          {user.role === 'student' && totalProjects > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-4">Domain Breakdown</h2>
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="space-y-4">
+                  {Object.entries(domainCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([domain, count]) => {
+                      const percentage = (count / totalProjects) * 100;
+                      return (
+                        <div key={domain}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-slate-800">{domain}</span>
+                            <span className="text-sm text-slate-600">{count} projects</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-3">
+                            <div
+                              className="bg-indigo-600 h-3 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
